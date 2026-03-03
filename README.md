@@ -187,6 +187,10 @@ The icon resolution follows this fallback chain:
 3. `/usr/share/pixmaps/` directory
 4. No icon (card displays without icon)
 
+## Contributing
+
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on how to get started.
+
 ## License
 
-MIT
+[MIT](LICENSE.md)
