@@ -15,6 +15,7 @@ use iced_layershell::settings::{LayerShellSettings, Settings, StartMode};
 use crate::hyprland::ipc::{self, initial_selected_index};
 use crate::hyprland::types::WindowEntry;
 use crate::icons::resolver::IconResolver;
+use crate::ui::window_list;
 
 fn main() -> Result<()> {
     tracing_subscriber::fmt()
@@ -77,6 +78,7 @@ fn main() -> Result<()> {
     // selected_index starts at 1 (the previous window) to match standard Alt+Tab
     // behavior: the previously focused window is pre-selected on first press.
     let initial_index = initial_selected_index(windows.len());
+    let per_row = window_list::items_per_row();
     let state_cell = Mutex::new(Some(windows));
 
     let result = iced_layershell::application(
@@ -85,6 +87,7 @@ fn main() -> Result<()> {
             app::AppState {
                 windows,
                 selected_index: initial_index,
+                items_per_row: per_row,
             }
         },
         app::namespace,

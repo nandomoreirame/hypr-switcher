@@ -20,6 +20,7 @@ pub static SELECTED_WINDOW: Mutex<Option<String>> = Mutex::new(None);
 pub struct AppState {
     pub windows: Vec<WindowEntry>,
     pub selected_index: usize,
+    pub items_per_row: usize,
 }
 
 #[to_layer_message]
@@ -27,6 +28,8 @@ pub struct AppState {
 pub enum Message {
     CycleNext,
     CyclePrev,
+    CycleUp,
+    CycleDown,
     ConfirmSelection,
     Dismiss,
     PollIpc,
@@ -38,6 +41,7 @@ impl Default for AppState {
         Self {
             windows: Vec::new(),
             selected_index: 0,
+            items_per_row: 1,
         }
     }
 }
@@ -79,6 +83,20 @@ pub fn update(state: &mut AppState, message: Message) -> Task<Message> {
             }
             Task::none()
         }
+        Message::CycleUp => {
+            if !state.windows.is_empty() {
+                state.selected_index =
+                    state.selected_index.saturating_sub(state.items_per_row);
+            }
+            Task::none()
+        }
+        Message::CycleDown => {
+            if !state.windows.is_empty() {
+                let new_index = state.selected_index + state.items_per_row;
+                state.selected_index = new_index.min(state.windows.len() - 1);
+            }
+            Task::none()
+        }
         Message::ConfirmSelection => {
             // Store the address to focus AFTER the overlay is destroyed.
             // Focusing while the overlay has KeyboardInteractivity::Exclusive
@@ -111,16 +129,24 @@ pub fn update(state: &mut AppState, message: Message) -> Task<Message> {
                     }
 
                     match key {
-                        Key::Named(keyboard::key::Named::Tab)
-                        | Key::Named(keyboard::key::Named::ArrowRight) => {
+                        Key::Named(keyboard::key::Named::Tab) => {
                             if modifiers.shift() {
                                 return update(state, Message::CyclePrev);
                             } else {
                                 return update(state, Message::CycleNext);
                             }
                         }
+                        Key::Named(keyboard::key::Named::ArrowRight) => {
+                            return update(state, Message::CycleNext);
+                        }
                         Key::Named(keyboard::key::Named::ArrowLeft) => {
                             return update(state, Message::CyclePrev);
+                        }
+                        Key::Named(keyboard::key::Named::ArrowUp) => {
+                            return update(state, Message::CycleUp);
+                        }
+                        Key::Named(keyboard::key::Named::ArrowDown) => {
+                            return update(state, Message::CycleDown);
                         }
                         Key::Named(keyboard::key::Named::Enter) => {
                             return update(state, Message::ConfirmSelection);
@@ -209,12 +235,17 @@ mod tests {
             .collect()
     }
 
+    fn make_state(count: usize, selected: usize) -> AppState {
+        AppState {
+            windows: make_windows(count),
+            selected_index: selected,
+            items_per_row: 8,
+        }
+    }
+
     #[test]
     fn test_cycle_next_wraps() {
-        let mut state = AppState {
-            windows: make_windows(3),
-            selected_index: 2,
-        };
+        let mut state = make_state(3, 2);
 
         let _ = update(&mut state, Message::CycleNext);
         assert_eq!(state.selected_index, 0);
@@ -222,10 +253,7 @@ mod tests {
 
     #[test]
     fn test_cycle_next_increments() {
-        let mut state = AppState {
-            windows: make_windows(3),
-            selected_index: 0,
-        };
+        let mut state = make_state(3, 0);
 
         let _ = update(&mut state, Message::CycleNext);
         assert_eq!(state.selected_index, 1);
@@ -233,10 +261,7 @@ mod tests {
 
     #[test]
     fn test_cycle_prev_wraps() {
-        let mut state = AppState {
-            windows: make_windows(3),
-            selected_index: 0,
-        };
+        let mut state = make_state(3, 0);
 
         let _ = update(&mut state, Message::CyclePrev);
         assert_eq!(state.selected_index, 2);
@@ -244,10 +269,7 @@ mod tests {
 
     #[test]
     fn test_cycle_prev_decrements() {
-        let mut state = AppState {
-            windows: make_windows(3),
-            selected_index: 2,
-        };
+        let mut state = make_state(3, 2);
 
         let _ = update(&mut state, Message::CyclePrev);
         assert_eq!(state.selected_index, 1);
@@ -258,6 +280,7 @@ mod tests {
         let mut state = AppState {
             windows: vec![],
             selected_index: 0,
+            items_per_row: 8,
         };
 
         let _ = update(&mut state, Message::CycleNext);
@@ -268,16 +291,85 @@ mod tests {
     }
 
     #[test]
+    fn test_cycle_up_moves_up_one_row() {
+        // 16 windows, items_per_row=8, selected=10 (row 1, col 2)
+        let mut state = AppState {
+            windows: make_windows(16),
+            selected_index: 10,
+            items_per_row: 8,
+        };
+
+        let _ = update(&mut state, Message::CycleUp);
+        assert_eq!(state.selected_index, 2); // 10 - 8 = 2
+    }
+
+    #[test]
+    fn test_cycle_up_clamps_at_top() {
+        // Already on first row, should stay at column position (clamp to 0)
+        let mut state = make_state(16, 3);
+
+        let _ = update(&mut state, Message::CycleUp);
+        assert_eq!(state.selected_index, 0); // saturating_sub(8) from 3 = 0
+    }
+
+    #[test]
+    fn test_cycle_down_moves_down_one_row() {
+        // 16 windows, items_per_row=8, selected=2 (row 0, col 2)
+        let mut state = AppState {
+            windows: make_windows(16),
+            selected_index: 2,
+            items_per_row: 8,
+        };
+
+        let _ = update(&mut state, Message::CycleDown);
+        assert_eq!(state.selected_index, 10); // 2 + 8 = 10
+    }
+
+    #[test]
+    fn test_cycle_down_clamps_at_bottom() {
+        // 16 windows, selected=10, 10+8=18 > 15 → clamp to 15
+        let mut state = AppState {
+            windows: make_windows(16),
+            selected_index: 10,
+            items_per_row: 8,
+        };
+
+        let _ = update(&mut state, Message::CycleDown);
+        assert_eq!(state.selected_index, 15); // min(18, 15)
+    }
+
+    #[test]
+    fn test_cycle_up_empty_windows() {
+        let mut state = AppState {
+            windows: vec![],
+            selected_index: 0,
+            items_per_row: 8,
+        };
+
+        let _ = update(&mut state, Message::CycleUp);
+        assert_eq!(state.selected_index, 0);
+    }
+
+    #[test]
+    fn test_cycle_down_empty_windows() {
+        let mut state = AppState {
+            windows: vec![],
+            selected_index: 0,
+            items_per_row: 8,
+        };
+
+        let _ = update(&mut state, Message::CycleDown);
+        assert_eq!(state.selected_index, 0);
+    }
+
+    #[test]
     fn test_namespace() {
         assert_eq!(namespace(), "hypr-switcher");
     }
 
     #[test]
     fn test_selected_address() {
-        let state = AppState {
-            windows: make_windows(3),
-            selected_index: 1,
-        };
+        let state = make_state(3, 1);
 
         assert_eq!(selected_address(&state), Some("0x1".to_string()));
     }
@@ -287,6 +379,7 @@ mod tests {
         let state = AppState {
             windows: vec![],
             selected_index: 0,
+            items_per_row: 8,
         };
 
         assert_eq!(selected_address(&state), None);
@@ -297,6 +390,7 @@ mod tests {
         let state = AppState {
             windows: make_windows(2),
             selected_index: 5,
+            items_per_row: 8,
         };
 
         assert_eq!(selected_address(&state), None);
@@ -304,10 +398,7 @@ mod tests {
 
     #[test]
     fn test_poll_ipc_next() {
-        let mut state = AppState {
-            windows: make_windows(3),
-            selected_index: 0,
-        };
+        let mut state = make_state(3, 0);
 
         IPC_SIGNAL.store(1, Ordering::SeqCst);
         let _ = update(&mut state, Message::PollIpc);
@@ -317,10 +408,7 @@ mod tests {
 
     #[test]
     fn test_poll_ipc_prev() {
-        let mut state = AppState {
-            windows: make_windows(3),
-            selected_index: 1,
-        };
+        let mut state = make_state(3, 1);
 
         IPC_SIGNAL.store(2, Ordering::SeqCst);
         let _ = update(&mut state, Message::PollIpc);
@@ -330,10 +418,7 @@ mod tests {
 
     #[test]
     fn test_poll_ipc_no_signal() {
-        let mut state = AppState {
-            windows: make_windows(3),
-            selected_index: 1,
-        };
+        let mut state = make_state(3, 1);
 
         IPC_SIGNAL.store(0, Ordering::SeqCst);
         let _ = update(&mut state, Message::PollIpc);

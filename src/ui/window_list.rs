@@ -1,32 +1,50 @@
-use iced::widget::{column, container, image, svg, text, Row, scrollable};
+use iced::widget::{column, container, image, svg, text, Column, Row};
 use iced::{Alignment, Element, Length, Padding};
 
 use crate::hyprland::types::WindowEntry;
 use crate::ui::style;
 
-/// Renders the window list as horizontal cards with the selected item highlighted.
+/// Returns how many items fit in a single grid row.
+/// Each card occupies CARD_ITEM_WIDTH + 2*ITEM_PADDING on screen, plus ITEM_SPACING between cards.
+pub fn items_per_row() -> usize {
+    let card_width = style::CARD_ITEM_WIDTH + 2.0 * style::ITEM_PADDING;
+    let inner_width = style::GRID_MAX_WIDTH - 2.0 * style::CARD_PADDING;
+    ((inner_width + style::ITEM_SPACING) / (card_width + style::ITEM_SPACING)).floor() as usize
+}
+
+/// Renders the window list as a grid of cards with the selected item highlighted.
 pub fn window_list_view<'a, M: Clone + 'a>(
     windows: &'a [WindowEntry],
     selected_index: usize,
 ) -> Element<'a, M> {
-    let items: Vec<Element<'a, M>> = windows
-        .iter()
+    let per_row = items_per_row();
+
+    let rows: Vec<Element<'a, M>> = windows
+        .chunks(per_row)
         .enumerate()
-        .map(|(i, entry)| window_card(entry, i == selected_index))
+        .map(|(chunk_idx, chunk)| {
+            let items: Vec<Element<'a, M>> = chunk
+                .iter()
+                .enumerate()
+                .map(|(i, entry)| {
+                    let global_index = chunk_idx * per_row + i;
+                    window_card(entry, global_index == selected_index)
+                })
+                .collect();
+
+            Row::with_children(items)
+                .spacing(style::ITEM_SPACING)
+                .align_y(Alignment::Center)
+                .into()
+        })
         .collect();
 
-    let cards_row = Row::with_children(items)
-        .spacing(style::ITEM_SPACING)
-        .align_y(Alignment::Center);
+    let grid = Column::with_children(rows)
+        .spacing(style::GRID_ROW_SPACING)
+        .align_x(Alignment::Center);
 
-    let scrollable_row = scrollable(cards_row)
-        .direction(scrollable::Direction::Horizontal(
-            scrollable::Scrollbar::new(),
-        ))
-        .width(Length::Shrink);
-
-    container(scrollable_row)
-        .max_width(style::CARD_MAX_WIDTH)
+    container(grid)
+        .max_width(style::GRID_MAX_WIDTH)
         .padding(style::CARD_PADDING)
         .style(card_container_style)
         .into()
@@ -158,5 +176,18 @@ fn badge_style(theme: &iced::Theme) -> container::Style {
             radius: 4.0.into(),
         },
         ..Default::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_items_per_row() {
+        // card_width = 140 + 2*12 = 164, slot = 164 + 6 = 170
+        // inner = 1800 - 2*10 = 1780, available = 1780 + 6 = 1786
+        // floor(1786 / 170) = 10
+        assert_eq!(items_per_row(), 10);
     }
 }

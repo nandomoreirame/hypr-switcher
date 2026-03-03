@@ -3,7 +3,8 @@
 use iced::Color;
 
 // Layout dimensions
-pub const CARD_MAX_WIDTH: f32 = 900.0;
+pub const GRID_MAX_WIDTH: f32 = 1800.0;
+pub const GRID_ROW_SPACING: f32 = 6.0;
 pub const CARD_ITEM_WIDTH: f32 = 140.0;
 pub const ICON_SIZE: f32 = 32.0;
 pub const ITEM_HEIGHT: f32 = 48.0;
@@ -89,8 +90,9 @@ mod tests {
     }
 
     #[test]
-    fn test_card_dimensions() {
-        assert_eq!(CARD_MAX_WIDTH, 900.0);
+    fn test_grid_dimensions() {
+        assert_eq!(GRID_MAX_WIDTH, 1800.0);
+        assert_eq!(GRID_ROW_SPACING, 6.0);
         assert_eq!(CARD_ITEM_WIDTH, 140.0);
         assert_eq!(ICON_SIZE, 32.0);
     }
