@@ -2,6 +2,8 @@
 
 A visual Alt+Tab window switcher for [Hyprland](https://hyprland.org/), written in Rust. It renders a fullscreen Wayland layer-shell overlay showing all open windows across all workspaces, with keyboard navigation to quickly select and focus any window.
 
+![hypr-switcher screenshot](assets/screenshot.png)
+
 ## Features
 
 - Visual overlay showing all open windows with icons, titles, and workspace badges
