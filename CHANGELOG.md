@@ -27,3 +27,16 @@ This project adheres to [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 ### Fixed
 
 - Grid layout now adapts dynamically to actual monitor width instead of using a fixed max width
+## [1.0.0] - 2026-03-03
+### Added
+- Replace horizontal scroll with grid layout.
+- Add application entry point and state management.
+- Add window list UI with layer-shell overlay.
+- Add XDG icon resolver with theme support.
+- Add IPC client and window types.
+
+### Fixed
+- Make grid responsive to actual monitor width.---
+
+## [Unreleased]
+
