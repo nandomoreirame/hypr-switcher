@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use iced::keyboard::{self, Key};
 use iced::widget::{center, container};
+use iced::window;
 use iced::{Color, Element, Event, Length, Subscription, Task};
 use iced_layershell::to_layer_message;
 
@@ -164,6 +165,10 @@ pub fn update(state: &mut AppState, message: Message) -> Task<Message> {
                 }) => {
                     return update(state, Message::ConfirmSelection);
                 }
+                Event::Window(window::Event::Opened { size, .. })
+                | Event::Window(window::Event::Resized(size)) => {
+                    state.items_per_row = window_list::calc_items_per_row(size.width);
+                }
                 _ => {}
             }
             Task::none()
@@ -189,7 +194,7 @@ pub fn view(state: &AppState) -> Element<'_, Message> {
             .into();
     }
 
-    let list = window_list::window_list_view(&state.windows, state.selected_index);
+    let list = window_list::window_list_view(&state.windows, state.selected_index, state.items_per_row);
 
     center(list)
         .width(Length::Fill)

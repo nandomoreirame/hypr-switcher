@@ -4,20 +4,23 @@ use iced::{Alignment, Element, Length, Padding};
 use crate::hyprland::types::WindowEntry;
 use crate::ui::style;
 
-/// Returns how many items fit in a single grid row.
+/// Calculates how many items fit in a single grid row for the given available width.
 /// Each card occupies CARD_ITEM_WIDTH + 2*ITEM_PADDING on screen, plus ITEM_SPACING between cards.
-pub fn items_per_row() -> usize {
+pub fn calc_items_per_row(available_width: f32) -> usize {
+    let width = available_width.min(style::GRID_MAX_WIDTH);
     let card_width = style::CARD_ITEM_WIDTH + 2.0 * style::ITEM_PADDING;
-    let inner_width = style::GRID_MAX_WIDTH - 2.0 * style::CARD_PADDING;
-    ((inner_width + style::ITEM_SPACING) / (card_width + style::ITEM_SPACING)).floor() as usize
+    let inner_width = width - 2.0 * style::CARD_PADDING;
+    let result = ((inner_width + style::ITEM_SPACING) / (card_width + style::ITEM_SPACING)).floor() as usize;
+    result.max(1)
 }
 
 /// Renders the window list as a grid of cards with the selected item highlighted.
 pub fn window_list_view<'a, M: Clone + 'a>(
     windows: &'a [WindowEntry],
     selected_index: usize,
+    items_per_row: usize,
 ) -> Element<'a, M> {
-    let per_row = items_per_row();
+    let per_row = items_per_row.max(1);
 
     let rows: Vec<Element<'a, M>> = windows
         .chunks(per_row)
@@ -184,10 +187,23 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_items_per_row() {
+    fn test_calc_items_per_row_large_monitor() {
+        // 1920px: capped to GRID_MAX_WIDTH=1800
         // card_width = 140 + 2*12 = 164, slot = 164 + 6 = 170
         // inner = 1800 - 2*10 = 1780, available = 1780 + 6 = 1786
         // floor(1786 / 170) = 10
-        assert_eq!(items_per_row(), 10);
+        assert_eq!(calc_items_per_row(1920.0), 10);
+    }
+
+    #[test]
+    fn test_calc_items_per_row_small_monitor() {
+        // 1024px monitor: inner = 1024 - 20 = 1004, (1004+6)/170 = 5.94 → 5
+        assert_eq!(calc_items_per_row(1024.0), 5);
+    }
+
+    #[test]
+    fn test_calc_items_per_row_minimum() {
+        // Very small width still returns at least 1
+        assert_eq!(calc_items_per_row(100.0), 1);
     }
 }
